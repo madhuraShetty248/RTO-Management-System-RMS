@@ -30,3 +30,20 @@ export const getAllDlApplications = async (): Promise<DlApplication[]> => {
   const result = await pool.query(query);
   return result.rows;
 };
+
+// Get DL application by id
+export const getDlApplicationById = async (id: string): Promise<DlApplication | null> => {
+  const query = `SELECT * FROM dl_applications WHERE id = $1`;
+  const result = await pool.query(query, [id]);
+  return result.rows[0] || null;
+};
+
+// Update DL application status
+export const updateDlApplicationStatus = async (
+  id: string,
+  status: string
+): Promise<DlApplication | null> => {
+  const query = `UPDATE dl_applications SET status = $1 WHERE id = $2 RETURNING *`;
+  const result = await pool.query(query, [status, id]);
+  return result.rows[0] || null;
+};
