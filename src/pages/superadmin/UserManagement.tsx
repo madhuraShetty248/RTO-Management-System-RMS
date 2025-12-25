@@ -70,11 +70,24 @@ const UserManagement: React.FC = () => {
         userService.listUsers(),
         rtoService.listOffices(),
       ]);
-      if (usersRes.success && usersRes.data) setUsers(usersRes.data);
-      else setUsers(mockUsers);
-      if (officesRes.success && officesRes.data) setRtoOffices(officesRes.data);
-      else setRtoOffices(mockRTOOffices);
+      
+      // Extract array from nested structure for users
+      if (usersRes.success && usersRes.data) {
+        const usersData = (usersRes.data as any).users || usersRes.data || [];
+        setUsers(Array.isArray(usersData) ? usersData : []);
+      } else {
+        setUsers(mockUsers);
+      }
+      
+      // Extract array from nested structure for offices
+      if (officesRes.success && officesRes.data) {
+        const officesData = (officesRes.data as any).rtoOffices || officesRes.data || [];
+        setRtoOffices(Array.isArray(officesData) ? officesData : []);
+      } else {
+        setRtoOffices(mockRTOOffices);
+      }
     } catch (error) {
+      console.error('Error fetching data:', error);
       setUsers(mockUsers);
       setRtoOffices(mockRTOOffices);
     } finally {

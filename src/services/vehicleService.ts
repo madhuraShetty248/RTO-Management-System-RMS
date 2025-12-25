@@ -41,7 +41,7 @@ export const vehicleService = {
   // Transfer vehicle ownership
   transferOwnership: async (vehicleId: string, toOwnerId: string): Promise<ApiResponse<Vehicle>> => {
     const response = await api.post(`/vehicles/${vehicleId}/transfer`, {
-      to_owner_id: toOwnerId,
+      to_user_id: toOwnerId,
     });
     return response.data;
   },

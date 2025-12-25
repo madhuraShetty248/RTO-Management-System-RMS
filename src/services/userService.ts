@@ -41,9 +41,9 @@ export const userService = {
   // Assign role to user (super admin only)
   assignRole: async (userId: string, role: string, rtoOfficeId?: string): Promise<ApiResponse<User>> => {
     const response = await api.post('/users/assign-role', {
-      user_id: userId,
+      userId,
       role,
-      rto_office_id: rtoOfficeId,
+      rtoOfficeId,
     });
     return response.data;
   },

@@ -46,9 +46,15 @@ const RTOOfficeManagement: React.FC = () => {
   const fetchOffices = async () => {
     try {
       const response = await rtoService.listOffices();
-      if (response.success && response.data) setOffices(response.data);
-      else setOffices(mockOffices);
+      if (response.success && response.data) {
+        // Extract array from nested structure
+        const officesData = (response.data as any).rtoOffices || response.data || [];
+        setOffices(Array.isArray(officesData) ? officesData : []);
+      } else {
+        setOffices(mockOffices);
+      }
     } catch (error) {
+      console.error('Error fetching offices:', error);
       setOffices(mockOffices);
     } finally {
       setIsLoading(false);

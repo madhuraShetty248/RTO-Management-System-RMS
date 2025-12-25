@@ -6,16 +6,9 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { paymentService } from '@/services';
 import { Payment } from '@/types';
-import { Wallet, CreditCard, Loader2, CheckCircle2, XCircle, Clock, ArrowDownRight, ArrowUpRight, Download, Info } from 'lucide-react';
+import { Wallet, CreditCard, Loader2, CheckCircle2, XCircle, Clock, ArrowDownRight, ArrowUpRight, Download } from 'lucide-react';
 
-// Mock data for demo mode
-const mockPayments: Payment[] = [
-  { id: 'PAY001', user_id: 'user1', challan_id: 'CH001', amount: 1000, status: 'COMPLETED', payment_method: 'UPI', transaction_id: 'TXN2024123001', created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), updated_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString() },
-  { id: 'PAY002', user_id: 'user1', amount: 500, status: 'COMPLETED', payment_method: 'CARD', transaction_id: 'TXN2024122901', created_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(), updated_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString() },
-  { id: 'PAY003', user_id: 'user1', amount: 2500, status: 'COMPLETED', payment_method: 'NETBANKING', transaction_id: 'TXN2024121501', created_at: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(), updated_at: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString() },
-  { id: 'PAY004', user_id: 'user1', challan_id: 'CH002', amount: 300, status: 'PENDING', payment_method: 'UPI', created_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(), updated_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString() },
-  { id: 'PAY005', user_id: 'user1', amount: 1500, status: 'REFUNDED', payment_method: 'CARD', transaction_id: 'TXN2024120101', refund_reason: 'Duplicate payment', created_at: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(), updated_at: new Date(Date.now() - 25 * 24 * 60 * 60 * 1000).toISOString() },
-];
+
 
 const getStatusBadge = (status: string) => {
   switch (status) {
@@ -38,7 +31,6 @@ const PaymentHistory: React.FC = () => {
   const { toast } = useToast();
   const [payments, setPayments] = useState<Payment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isDemoMode, setIsDemoMode] = useState(false);
 
   useEffect(() => {
     fetchPayments();
@@ -46,26 +38,28 @@ const PaymentHistory: React.FC = () => {
 
   const fetchPayments = async () => {
     try {
-      const response = await paymentService.getMyPaymentHistory().catch(() => ({ success: false, data: [] }));
-      const data = response.success && Array.isArray(response.data) ? response.data : [];
-      
-      if (data.length === 0) {
-        setPayments(mockPayments);
-        setIsDemoMode(true);
+      const response = await paymentService.getMyPaymentHistory();
+      if (response.success && response.data) {
+        // Extract payments array from nested response structure
+        const paymentsData = (response.data as any).payments || response.data || [];
+        if (Array.isArray(paymentsData)) {
+          setPayments(paymentsData);
+        } else {
+          setPayments([]);
+        }
       } else {
-        setPayments(data);
+        setPayments([]);
       }
     } catch (error) {
       console.error('Error fetching payments:', error);
-      setPayments(mockPayments);
-      setIsDemoMode(true);
+      setPayments([]);
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleDownloadReceipt = (payment: Payment) => {
-    toast({ title: isDemoMode ? 'Demo Mode' : 'Info', description: 'Receipt download will be implemented' });
+    toast({ title: 'Info', description: 'Receipt download will be implemented' });
   };
 
   const totalPaid = payments.filter(p => p.status === 'COMPLETED').reduce((sum, p) => sum + p.amount, 0);
@@ -77,13 +71,6 @@ const PaymentHistory: React.FC = () => {
 
   return (
     <div className="space-y-6 fade-in-up">
-      {isDemoMode && (
-        <div className="flex items-center gap-2 p-3 rounded-lg bg-primary/10 border border-primary/20">
-          <Info className="h-4 w-4 text-primary" />
-          <span className="text-sm text-primary">Demo Mode: Displaying sample payment history</span>
-        </div>
-      )}
-      
       <div>
         <h1 className="text-2xl font-bold">Payments</h1>
         <p className="text-muted-foreground">View your payment history and transactions</p>
