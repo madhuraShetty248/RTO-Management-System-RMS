@@ -87,6 +87,13 @@ const MyProfile: React.FC = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
+              <Label className="text-muted-foreground flex items-center gap-2"><Shield className="h-4 w-4" />User ID</Label>
+              <div className="flex items-center gap-2">
+                <p className="font-medium font-mono text-sm bg-muted/50 px-3 py-2 rounded-md break-all">{profile?.id}</p>
+              </div>
+              <p className="text-xs text-muted-foreground">Use this ID for vehicle transfers and other operations</p>
+            </div>
+            <div className="space-y-2">
               <Label className="text-muted-foreground flex items-center gap-2"><User className="h-4 w-4" />Full Name</Label>
               {isEditing ? (
                 <Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="bg-muted/50" />

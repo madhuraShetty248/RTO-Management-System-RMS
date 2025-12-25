@@ -10,6 +10,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { PublicLayout } from '@/components/layout';
 import { User, Mail, Phone, MapPin, Calendar, CreditCard, Shield, Edit2, Save, X, Loader2, LogIn } from 'lucide-react';
+import api from '@/services/api';
 
 const Profile: React.FC = () => {
   const { user, isAuthenticated } = useAuth();
@@ -17,6 +18,7 @@ const Profile: React.FC = () => {
   const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isFetching, setIsFetching] = useState(true);
   const [profile, setProfile] = useState(user);
   const [formData, setFormData] = useState({
     name: user?.name || '',
@@ -25,27 +27,59 @@ const Profile: React.FC = () => {
   });
 
   useEffect(() => {
-    if (user) {
-      setProfile(user);
-      setFormData({
-        name: user.name || '',
-        phone: user.phone || '',
-        address: user.address || '',
-      });
-    }
-  }, [user]);
+    const fetchProfile = async () => {
+      if (isAuthenticated && user) {
+        try {
+          setIsFetching(true);
+          const response = await api.get('/users/profile');
+          if (response.data.success) {
+            const profileData = response.data.data.user;
+            setProfile(profileData);
+            setFormData({
+              name: profileData.name || '',
+              phone: profileData.phone || '',
+              address: profileData.address || '',
+            });
+            // Update localStorage with fresh data
+            localStorage.setItem('user', JSON.stringify(profileData));
+          }
+        } catch (error: any) {
+          console.error('Error fetching profile:', error);
+          toast({
+            title: 'Error',
+            description: 'Failed to load profile data',
+            variant: 'destructive',
+          });
+        } finally {
+          setIsFetching(false);
+        }
+      } else {
+        setIsFetching(false);
+      }
+    };
+
+    fetchProfile();
+  }, [isAuthenticated, user?.id]);
 
   const handleSave = async () => {
     setIsLoading(true);
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      toast({ title: 'Success', description: 'Profile updated successfully!' });
-      setProfile({ ...profile, ...formData } as any);
-      setIsEditing(false);
-      localStorage.setItem('user', JSON.stringify({ ...profile, ...formData }));
+      const response = await api.put('/users/profile', formData);
+      if (response.data.success) {
+        const updatedProfile = response.data.data.user;
+        setProfile(updatedProfile);
+        localStorage.setItem('user', JSON.stringify(updatedProfile));
+        toast({ title: 'Success', description: 'Profile updated successfully!' });
+        setIsEditing(false);
+      } else {
+        toast({ title: 'Error', description: response.data.message || 'Update failed', variant: 'destructive' });
+      }
     } catch (error: any) {
-      toast({ title: 'Error', description: 'Update failed', variant: 'destructive' });
+      toast({ 
+        title: 'Error', 
+        description: error.response?.data?.message || 'Update failed', 
+        variant: 'destructive' 
+      });
     } finally {
       setIsLoading(false);
     }
@@ -70,6 +104,19 @@ const Profile: React.FC = () => {
               </Button>
             </CardContent>
           </Card>
+        </div>
+      </PublicLayout>
+    );
+  }
+
+  if (isFetching) {
+    return (
+      <PublicLayout>
+        <div className="min-h-[60vh] flex items-center justify-center">
+          <div className="text-center">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+            <p className="text-muted-foreground">Loading profile...</p>
+          </div>
         </div>
       </PublicLayout>
     );
@@ -129,6 +176,13 @@ const Profile: React.FC = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
+                  <Label className="text-muted-foreground flex items-center gap-2"><Shield className="h-4 w-4" />User ID</Label>
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium font-mono text-sm bg-muted/50 px-3 py-2 rounded-md break-all">{profile?.id}</p>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Use this ID for vehicle transfers and other operations</p>
+                </div>
+                <div className="space-y-2">
                   <Label className="text-muted-foreground flex items-center gap-2"><User className="h-4 w-4" />Full Name</Label>
                   {isEditing ? (
                     <Input value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="bg-muted/50" />
@@ -150,7 +204,7 @@ const Profile: React.FC = () => {
                 </div>
                 <div className="space-y-2">
                   <Label className="text-muted-foreground flex items-center gap-2"><Calendar className="h-4 w-4" />Date of Birth</Label>
-                  <p className="font-medium">{profile?.date_of_birth ? new Date(profile.date_of_birth).toLocaleDateString() : 'N/A'}</p>
+                  <p className="font-medium">{profile?.date_of_birth ? new Date(profile.date_of_birth).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' }) : 'Not provided'}</p>
                 </div>
               </CardContent>
             </Card>
@@ -170,7 +224,11 @@ const Profile: React.FC = () => {
                 </div>
                 <div className="space-y-2">
                   <Label className="text-muted-foreground flex items-center gap-2"><CreditCard className="h-4 w-4" />Aadhaar Number</Label>
-                  <p className="font-medium">XXXX XXXX {profile?.aadhaar_number?.slice(-4) || 'XXXX'}</p>
+                  <p className="font-medium">
+                    {profile?.aadhaar_number 
+                      ? `XXXX XXXX ${profile.aadhaar_number.slice(-4)}` 
+                      : 'Not provided'}
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label className="text-muted-foreground flex items-center gap-2"><Shield className="h-4 w-4" />Account Status</Label>

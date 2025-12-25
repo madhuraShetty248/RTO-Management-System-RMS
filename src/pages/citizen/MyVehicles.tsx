@@ -10,22 +10,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { vehicleService, rtoService } from '@/services';
 import { Vehicle, RTOOffice, VehicleType, FuelType } from '@/types';
-import { Car, Plus, Eye, RefreshCw, Trash2, Loader2, CheckCircle2, Clock, XCircle, AlertTriangle, Info } from 'lucide-react';
+import { Car, Plus, Eye, RefreshCw, Trash2, Loader2, CheckCircle2, Clock, XCircle, AlertTriangle } from 'lucide-react';
 
 const vehicleTypes: VehicleType[] = ['CAR', 'MOTORCYCLE', 'TRUCK', 'BUS', 'AUTO', 'OTHER'];
 const fuelTypes: FuelType[] = ['PETROL', 'DIESEL', 'ELECTRIC', 'HYBRID', 'CNG', 'LPG'];
-
-// Mock data for demo mode
-const mockVehicles: Vehicle[] = [
-  { id: '1', owner_id: 'user1', vehicle_type: 'CAR', make: 'Maruti Suzuki', model: 'Swift', year: 2023, color: 'White', engine_number: 'K12N1234567', chassis_number: 'MA3FJEB1S00123456', fuel_type: 'PETROL', registration_number: 'MH12AB1234', rto_office_id: 'rto1', status: 'APPROVED', verified: true, created_at: '2023-06-15', updated_at: '2023-06-20' },
-  { id: '2', owner_id: 'user1', vehicle_type: 'MOTORCYCLE', make: 'Honda', model: 'Activa 6G', year: 2024, color: 'Black', engine_number: 'JF50E1234567', chassis_number: 'ME4JF501ELT123456', fuel_type: 'PETROL', registration_number: null, rto_office_id: 'rto1', status: 'PENDING', verified: false, created_at: '2024-12-10', updated_at: '2024-12-10' },
-  { id: '3', owner_id: 'user1', vehicle_type: 'CAR', make: 'Hyundai', model: 'Creta', year: 2022, color: 'Blue', engine_number: 'G4NH1234567', chassis_number: 'MALC381CLNM123456', fuel_type: 'DIESEL', registration_number: 'MH14CD5678', rto_office_id: 'rto2', status: 'APPROVED', verified: true, created_at: '2022-03-10', updated_at: '2022-03-15' },
-];
-
-const mockRTOOffices: RTOOffice[] = [
-  { id: 'rto1', name: 'Pune RTO', code: 'MH12', address: 'Sangamwadi, Pune', city: 'Pune', state: 'Maharashtra', pincode: '411001', phone: '020-26161251', email: 'rto.pune@mh.gov.in', status: 'ACTIVE', created_at: '2020-01-01', updated_at: '2020-01-01' },
-  { id: 'rto2', name: 'Mumbai RTO', code: 'MH01', address: 'Tardeo, Mumbai', city: 'Mumbai', state: 'Maharashtra', pincode: '400034', phone: '022-23521001', email: 'rto.mumbai@mh.gov.in', status: 'ACTIVE', created_at: '2020-01-01', updated_at: '2020-01-01' },
-];
 
 const getStatusBadge = (status: string) => {
   switch (status) {
@@ -44,7 +32,11 @@ const MyVehicles: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isDemoMode, setIsDemoMode] = useState(false);
+  const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [isTransferDialogOpen, setIsTransferDialogOpen] = useState(false);
+  const [transferUserId, setTransferUserId] = useState('');
+  const [isTransferring, setIsTransferring] = useState(false);
   const [formData, setFormData] = useState({
     vehicle_type: '' as VehicleType,
     make: '',
@@ -62,33 +54,42 @@ const MyVehicles: React.FC = () => {
   }, []);
 
   const fetchData = async () => {
+    setIsLoading(true);
     try {
       const [vehiclesRes, officesRes] = await Promise.all([
-        vehicleService.getMyVehicles().catch(() => ({ success: false, data: [] })),
-        rtoService.listOffices().catch(() => ({ success: false, data: [] })),
+        vehicleService.getMyVehicles(),
+        rtoService.listOffices(),
       ]);
       
-      const vehiclesData = vehiclesRes.success && Array.isArray(vehiclesRes.data) ? vehiclesRes.data : [];
-      const officesData = officesRes.success && Array.isArray(officesRes.data) ? officesRes.data : [];
-      
-      // Use mock data if API returns empty
-      if (vehiclesData.length === 0) {
-        setVehicles(mockVehicles);
-        setIsDemoMode(true);
+      // Handle vehicles response
+      if (vehiclesRes.success && vehiclesRes.data) {
+        const vehiclesData = (vehiclesRes.data as any).vehicles || vehiclesRes.data || [];
+        setVehicles(Array.isArray(vehiclesData) ? vehiclesData : []);
       } else {
-        setVehicles(vehiclesData);
+        setVehicles([]);
       }
       
-      if (officesData.length === 0) {
-        setRtoOffices(mockRTOOffices);
+      // Handle RTO offices response
+      if (officesRes.success && officesRes.data) {
+        const officesData = (officesRes.data as any).rtoOffices || officesRes.data || [];
+        setRtoOffices(Array.isArray(officesData) ? officesData : []);
       } else {
-        setRtoOffices(officesData);
+        setRtoOffices([]);
+        toast({
+          title: 'Warning',
+          description: 'Could not load RTO offices. Please try again later.',
+          variant: 'destructive',
+        });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching data:', error);
-      setVehicles(mockVehicles);
-      setRtoOffices(mockRTOOffices);
-      setIsDemoMode(true);
+      setVehicles([]);
+      setRtoOffices([]);
+      toast({
+        title: 'Error',
+        description: error.response?.data?.message || 'Failed to load data. Please try again.',
+        variant: 'destructive',
+      });
     } finally {
       setIsLoading(false);
     }
@@ -96,35 +97,112 @@ const MyVehicles: React.FC = () => {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate all required fields
+    if (!formData.vehicle_type || !formData.fuel_type || !formData.make || !formData.model || 
+        !formData.color || !formData.engine_number || !formData.chassis_number || !formData.rto_office_id) {
+      toast({
+        title: 'Validation Error',
+        description: 'Please fill in all required fields',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
     setIsSubmitting(true);
     try {
-      if (isDemoMode) {
-        // Simulate registration in demo mode
-        const newVehicle: Vehicle = {
-          id: Date.now().toString(),
-          owner_id: 'user1',
-          ...formData,
-          registration_number: null,
-          status: 'PENDING',
-          verified: false,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
-        setVehicles(prev => [...prev, newVehicle]);
-        toast({ title: 'Demo Mode', description: 'Vehicle registration submitted (Demo)!' });
+      const response = await vehicleService.register(formData);
+      if (response.success) {
+        toast({ 
+          title: 'Success', 
+          description: 'Vehicle registration submitted successfully!' 
+        });
+        setIsDialogOpen(false);
+        // Reset form
+        setFormData({ 
+          vehicle_type: '' as VehicleType, 
+          make: '', 
+          model: '', 
+          year: new Date().getFullYear(), 
+          color: '', 
+          engine_number: '', 
+          chassis_number: '', 
+          fuel_type: '' as FuelType, 
+          rto_office_id: '' 
+        });
+        // Refresh the vehicles list
+        await fetchData();
       } else {
-        const response = await vehicleService.register(formData);
-        if (response.success) {
-          toast({ title: 'Success', description: 'Vehicle registration submitted!' });
-          fetchData();
-        }
+        toast({ 
+          title: 'Error', 
+          description: response.message || 'Registration failed', 
+          variant: 'destructive' 
+        });
       }
-      setIsDialogOpen(false);
-      setFormData({ vehicle_type: '' as VehicleType, make: '', model: '', year: new Date().getFullYear(), color: '', engine_number: '', chassis_number: '', fuel_type: '' as FuelType, rto_office_id: '' });
     } catch (error: any) {
-      toast({ title: 'Error', description: error.response?.data?.message || 'Registration failed', variant: 'destructive' });
+      console.error('Error registering vehicle:', error);
+      toast({ 
+        title: 'Error', 
+        description: error.response?.data?.message || 'Failed to register vehicle. Please try again.', 
+        variant: 'destructive' 
+      });
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleViewVehicle = (vehicle: Vehicle) => {
+    setSelectedVehicle(vehicle);
+    setIsViewDialogOpen(true);
+  };
+
+  const handleTransferClick = (vehicle: Vehicle) => {
+    setSelectedVehicle(vehicle);
+    setIsTransferDialogOpen(true);
+    setTransferUserId('');
+  };
+
+  const handleTransfer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!selectedVehicle || !transferUserId.trim()) {
+      toast({
+        title: 'Validation Error',
+        description: 'Please enter the new owner\'s user ID',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
+    setIsTransferring(true);
+    try {
+      const response = await vehicleService.transferOwnership(selectedVehicle.id, transferUserId);
+      if (response.success) {
+        toast({ 
+          title: 'Success', 
+          description: 'Vehicle transfer request submitted successfully!' 
+        });
+        setIsTransferDialogOpen(false);
+        setTransferUserId('');
+        setSelectedVehicle(null);
+        // Refresh the vehicles list
+        await fetchData();
+      } else {
+        toast({ 
+          title: 'Error', 
+          description: response.message || 'Transfer failed', 
+          variant: 'destructive' 
+        });
+      }
+    } catch (error: any) {
+      console.error('Error transferring vehicle:', error);
+      toast({ 
+        title: 'Error', 
+        description: error.response?.data?.message || 'Failed to transfer vehicle. Please try again.', 
+        variant: 'destructive' 
+      });
+    } finally {
+      setIsTransferring(false);
     }
   };
 
@@ -134,13 +212,6 @@ const MyVehicles: React.FC = () => {
 
   return (
     <div className="space-y-6 fade-in-up">
-      {isDemoMode && (
-        <div className="flex items-center gap-2 p-3 rounded-lg bg-primary/10 border border-primary/20">
-          <Info className="h-4 w-4 text-primary" />
-          <span className="text-sm text-primary">Demo Mode: Displaying sample data</span>
-        </div>
-      )}
-      
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">My Vehicles</h1>
@@ -227,8 +298,8 @@ const MyVehicles: React.FC = () => {
                     <div><span className="text-muted-foreground">Fuel:</span><p className="font-medium">{vehicle.fuel_type}</p></div>
                   </div>
                   <div className="flex gap-2 pt-2">
-                    <Button variant="outline" size="sm" className="flex-1"><Eye className="h-4 w-4 mr-1" />View</Button>
-                    <Button variant="outline" size="sm" className="flex-1"><RefreshCw className="h-4 w-4 mr-1" />Transfer</Button>
+                    <Button variant="outline" size="sm" className="flex-1" onClick={() => handleViewVehicle(vehicle)}><Eye className="h-4 w-4 mr-1" />View</Button>
+                    <Button variant="outline" size="sm" className="flex-1" onClick={() => handleTransferClick(vehicle)}><RefreshCw className="h-4 w-4 mr-1" />Transfer</Button>
                   </div>
                 </CardContent>
               </Card>
@@ -236,6 +307,121 @@ const MyVehicles: React.FC = () => {
           ))}
         </div>
       )}
+
+      {/* View Vehicle Dialog */}
+      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+        <DialogContent className="glass-card max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Vehicle Details</DialogTitle>
+          </DialogHeader>
+          {selectedVehicle && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground">Vehicle Type</Label>
+                  <p className="font-medium">{selectedVehicle.vehicle_type}</p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground">Status</Label>
+                  <div>{getStatusBadge(selectedVehicle.status)}</div>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground">Make</Label>
+                  <p className="font-medium">{selectedVehicle.make}</p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground">Model</Label>
+                  <p className="font-medium">{selectedVehicle.model}</p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground">Year</Label>
+                  <p className="font-medium">{selectedVehicle.year}</p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground">Color</Label>
+                  <p className="font-medium">{selectedVehicle.color}</p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground">Fuel Type</Label>
+                  <p className="font-medium">{selectedVehicle.fuel_type}</p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground">Registration Number</Label>
+                  <p className="font-medium">{selectedVehicle.registration_number || 'Pending'}</p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground">Engine Number</Label>
+                  <p className="font-medium">{selectedVehicle.engine_number}</p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground">Chassis Number</Label>
+                  <p className="font-medium">{selectedVehicle.chassis_number}</p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground">Verified</Label>
+                  <p className="font-medium">{selectedVehicle.verified ? 'Yes' : 'No'}</p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground">Created At</Label>
+                  <p className="font-medium">{new Date(selectedVehicle.created_at).toLocaleDateString()}</p>
+                </div>
+              </div>
+              <div className="flex justify-end pt-4">
+                <Button variant="outline" onClick={() => setIsViewDialogOpen(false)}>Close</Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Transfer Vehicle Dialog */}
+      <Dialog open={isTransferDialogOpen} onOpenChange={setIsTransferDialogOpen}>
+        <DialogContent className="glass-card max-w-md">
+          <DialogHeader>
+            <DialogTitle>Transfer Vehicle Ownership</DialogTitle>
+          </DialogHeader>
+          {selectedVehicle && (
+            <form onSubmit={handleTransfer} className="space-y-4">
+              <div className="space-y-2">
+                <Label className="text-muted-foreground">Vehicle</Label>
+                <p className="font-medium">{selectedVehicle.make} {selectedVehicle.model} ({selectedVehicle.registration_number || 'Pending'})</p>
+              </div>
+              <div className="space-y-2">
+                <Label>New Owner User ID <span className="text-red-500">*</span></Label>
+                <Input
+                  placeholder="Enter the user ID of the new owner"
+                  value={transferUserId}
+                  onChange={(e) => setTransferUserId(e.target.value)}
+                  className="bg-muted/50"
+                  required
+                />
+                <p className="text-xs text-muted-foreground">The new owner must be a registered user in the system</p>
+              </div>
+              <div className="flex gap-2 pt-4">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  className="flex-1" 
+                  onClick={() => {
+                    setIsTransferDialogOpen(false);
+                    setTransferUserId('');
+                    setSelectedVehicle(null);
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  type="submit" 
+                  className="btn-gradient flex-1" 
+                  disabled={isTransferring}
+                >
+                  {isTransferring ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Transfer Ownership'}
+                </Button>
+              </div>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
