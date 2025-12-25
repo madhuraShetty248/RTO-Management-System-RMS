@@ -2,16 +2,32 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { analyticsService } from '@/services';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
+import { analyticsService, challanService } from '@/services';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { TrendingUp, AlertTriangle, Loader2 } from 'lucide-react';
 
 const COLORS = ['#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#6366f1', '#14b8a6'];
 
+const violationLabels: Record<string, string> = {
+  OVER_SPEEDING: 'Over Speeding',
+  SIGNAL_JUMP: 'Signal Jump',
+  NO_HELMET: 'No Helmet',
+  NO_SEATBELT: 'No Seatbelt',
+  DRUNK_DRIVING: 'Drunk Driving',
+  WRONG_PARKING: 'Wrong Parking',
+  NO_LICENSE: 'No License',
+  NO_INSURANCE: 'No Insurance',
+  OTHER: 'Other',
+};
+
 const PoliceAnalytics: React.FC = () => {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
-  const [analytics, setAnalytics] = useState<any>(null);
+  const [violationsByType, setViolationsByType] = useState<any[]>([]);
+  const [monthlyTrends, setMonthlyTrends] = useState<any[]>([]);
+  const [totalViolations, setTotalViolations] = useState(0);
+  const [thisMonthCount, setThisMonthCount] = useState(0);
+  const [topViolation, setTopViolation] = useState({ type: '', count: 0 });
 
   useEffect(() => {
     fetchAnalytics();
@@ -19,30 +35,53 @@ const PoliceAnalytics: React.FC = () => {
 
   const fetchAnalytics = async () => {
     try {
-      const response = await analyticsService.getViolationAnalytics();
-      if (response.success) setAnalytics(response.data);
-    } catch (error) {
-      // Use mock data for demo
-      setAnalytics({
-        total_violations: 1250,
-        violations_by_type: [
-          { type: 'OVER_SPEEDING', count: 320 },
-          { type: 'SIGNAL_JUMP', count: 280 },
-          { type: 'NO_HELMET', count: 220 },
-          { type: 'NO_SEATBELT', count: 180 },
-          { type: 'WRONG_PARKING', count: 150 },
-          { type: 'DRUNK_DRIVING', count: 50 },
-          { type: 'OTHER', count: 50 },
-        ],
-        violations_by_month: [
-          { month: 'Jul', count: 180 },
-          { month: 'Aug', count: 220 },
-          { month: 'Sep', count: 195 },
-          { month: 'Oct', count: 240 },
-          { month: 'Nov', count: 210 },
-          { month: 'Dec', count: 205 },
-        ],
-      });
+      // Fetch all challans to compute analytics
+      const response = await challanService.listChallans();
+      const challans = (response.data as any).challans || response.data || [];
+
+      if (Array.isArray(challans) && challans.length > 0) {
+        // Calculate violations by type
+        const typeMap: Record<string, number> = {};
+        challans.forEach((challan: any) => {
+          const type = challan.violation_type;
+          typeMap[type] = (typeMap[type] || 0) + 1;
+        });
+
+        const byType = Object.entries(typeMap).map(([type, count]) => ({
+          type: violationLabels[type] || type,
+          count,
+          rawType: type,
+        })).sort((a, b) => b.count - a.count);
+
+        setViolationsByType(byType);
+        setTotalViolations(challans.length);
+
+        // Find top violation
+        if (byType.length > 0) {
+          setTopViolation({ type: byType[0].type, count: byType[0].count });
+        }
+
+        // Calculate monthly trends (last 6 months)
+        const monthMap: Record<string, number> = {};
+        challans.forEach((challan: any) => {
+          const date = new Date((challan as any).issued_at || challan.created_at);
+          const monthKey = date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+          monthMap[monthKey] = (monthMap[monthKey] || 0) + 1;
+        });
+
+        const monthlyData = Object.entries(monthMap)
+          .map(([month, count]) => ({ month, count }))
+          .slice(-6); // Last 6 months
+
+        setMonthlyTrends(monthlyData);
+
+        // Calculate this month's count
+        const currentMonth = new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+        setThisMonthCount(monthMap[currentMonth] || 0);
+      }
+    } catch (error: any) {
+      console.error('Error fetching analytics:', error);
+      toast({ title: 'Error', description: 'Failed to fetch analytics data', variant: 'destructive' });
     } finally {
       setIsLoading(false);
     }
@@ -66,7 +105,7 @@ const PoliceAnalytics: React.FC = () => {
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Total Violations</p>
-                <p className="text-3xl font-bold">{analytics?.total_violations?.toLocaleString()}</p>
+                <p className="text-3xl font-bold">{totalViolations.toLocaleString()}</p>
                 <p className="text-xs text-muted-foreground mt-1">All time</p>
               </div>
               <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
@@ -80,8 +119,8 @@ const PoliceAnalytics: React.FC = () => {
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">This Month</p>
-                <p className="text-3xl font-bold">205</p>
-                <p className="text-xs text-success mt-1">+12% from last month</p>
+                <p className="text-3xl font-bold">{thisMonthCount}</p>
+                <p className="text-xs text-success mt-1">Current period</p>
               </div>
               <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-success to-accent flex items-center justify-center">
                 <TrendingUp className="h-6 w-6 text-success-foreground" />
@@ -94,8 +133,8 @@ const PoliceAnalytics: React.FC = () => {
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Top Violation</p>
-                <p className="text-3xl font-bold">Speeding</p>
-                <p className="text-xs text-muted-foreground mt-1">320 cases</p>
+                <p className="text-3xl font-bold text-lg">{topViolation.type || 'N/A'}</p>
+                <p className="text-xs text-muted-foreground mt-1">{topViolation.count} cases</p>
               </div>
               <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-destructive to-warning flex items-center justify-center">
                 <AlertTriangle className="h-6 w-6 text-destructive-foreground" />
@@ -115,8 +154,17 @@ const PoliceAnalytics: React.FC = () => {
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie data={analytics?.violations_by_type} dataKey="count" nameKey="type" cx="50%" cy="50%" outerRadius={100} label={({ type, percent }) => `${type.replace('_', ' ')} ${(percent * 100).toFixed(0)}%`} labelLine={false}>
-                    {analytics?.violations_by_type?.map((_: any, index: number) => (
+                  <Pie 
+                    data={violationsByType} 
+                    dataKey="count" 
+                    nameKey="type" 
+                    cx="50%" 
+                    cy="50%" 
+                    outerRadius={100} 
+                    label={({ type, percent }) => `${type} ${(percent * 100).toFixed(0)}%`}
+                    labelLine={false}
+                  >
+                    {violationsByType.map((_, index) => (
                       <Cell key={index} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
@@ -134,7 +182,7 @@ const PoliceAnalytics: React.FC = () => {
           <CardContent>
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={analytics?.violations_by_month}>
+                <BarChart data={monthlyTrends}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" />
                   <YAxis stroke="hsl(var(--muted-foreground))" />
