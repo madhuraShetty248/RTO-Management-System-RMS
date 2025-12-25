@@ -48,7 +48,18 @@ import VehicleManagement from "./pages/admin/VehicleManagement";
 import DLManagement from "./pages/admin/DLManagement";
 import AdminAnalytics from "./pages/admin/AdminAnalytics";
 
+// Super Admin Pages
+import SuperAdminDashboard from "./pages/superadmin/SuperAdminDashboard";
+import RTOOfficeManagement from "./pages/superadmin/RTOOfficeManagement";
+import UserManagement from "./pages/superadmin/UserManagement";
+
+// Auditor Pages
+import AuditorDashboard from "./pages/auditor/AuditorDashboard";
+import RevenueReports from "./pages/auditor/RevenueReports";
+import PaymentsAudit from "./pages/auditor/PaymentsAudit";
+
 import NotFound from "./pages/NotFound";
+import Unauthorized from "./pages/Unauthorized";
 
 const queryClient = new QueryClient();
 
@@ -122,24 +133,25 @@ const App = () => (
 
             {/* Super Admin Dashboard */}
             <Route path="/super-admin" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']}><DashboardLayout /></ProtectedRoute>}>
-              <Route path="dashboard" element={<AdminDashboard />} />
-              <Route path="offices" element={<AdminDashboard />} />
-              <Route path="users" element={<AdminDashboard />} />
-              <Route path="roles" element={<AdminDashboard />} />
+              <Route path="dashboard" element={<SuperAdminDashboard />} />
+              <Route path="offices" element={<RTOOfficeManagement />} />
+              <Route path="users" element={<UserManagement />} />
+              <Route path="roles" element={<UserManagement />} />
               <Route path="analytics" element={<AdminAnalytics />} />
-              <Route path="settings" element={<AdminDashboard />} />
+              <Route path="settings" element={<SuperAdminDashboard />} />
             </Route>
 
             {/* Auditor Dashboard */}
             <Route path="/auditor" element={<ProtectedRoute allowedRoles={['AUDITOR']}><DashboardLayout /></ProtectedRoute>}>
-              <Route path="dashboard" element={<AdminDashboard />} />
+              <Route path="dashboard" element={<AuditorDashboard />} />
               <Route path="analytics" element={<AdminAnalytics />} />
-              <Route path="revenue" element={<AdminAnalytics />} />
+              <Route path="revenue" element={<RevenueReports />} />
               <Route path="violations" element={<PoliceAnalytics />} />
-              <Route path="payments" element={<PaymentHistory />} />
+              <Route path="payments" element={<PaymentsAudit />} />
               <Route path="profile" element={<MyProfile />} />
             </Route>
 
+            <Route path="/unauthorized" element={<Unauthorized />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>

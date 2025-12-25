@@ -8,16 +8,35 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Car, Mail, Lock, ArrowRight, Loader2 } from 'lucide-react';
 
+const getRoleDashboard = (role: string): string => {
+  switch (role) {
+    case 'CITIZEN': return '/citizen/dashboard';
+    case 'POLICE': return '/police/dashboard';
+    case 'RTO_OFFICER': return '/officer/dashboard';
+    case 'RTO_ADMIN': return '/admin/dashboard';
+    case 'SUPER_ADMIN': return '/super-admin/dashboard';
+    case 'AUDITOR': return '/auditor/dashboard';
+    default: return '/citizen/dashboard';
+  }
+};
+
 const Login: React.FC = () => {
   const navigate = useNavigate();
-  const { login, isLoading } = useAuth();
+  const { login, isLoading, user } = useAuth();
   const [formData, setFormData] = useState({ email: '', password: '' });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const success = await login(formData);
     if (success) {
-      navigate('/citizen/dashboard');
+      // Get user from localStorage since context might not be updated yet
+      const storedUser = localStorage.getItem('user');
+      if (storedUser) {
+        const userData = JSON.parse(storedUser);
+        navigate(getRoleDashboard(userData.role));
+      } else {
+        navigate('/citizen/dashboard');
+      }
     }
   };
 
