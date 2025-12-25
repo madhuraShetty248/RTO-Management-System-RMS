@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,29 +7,9 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { ClipboardCheck, CheckCircle2, XCircle, Clock, Search, User, Calendar, Car, Info, FileText, Award } from 'lucide-react';
-
-interface TestResult {
-  id: string;
-  applicant_name: string;
-  application_id: string;
-  license_type: string;
-  test_date: string;
-  test_type: 'WRITTEN' | 'PRACTICAL';
-  status: 'SCHEDULED' | 'PASSED' | 'FAILED' | 'ABSENT';
-  score?: number;
-  remarks?: string;
-  examiner?: string;
-}
-
-const mockTestResults: TestResult[] = [
-  { id: '1', applicant_name: 'Rahul Sharma', application_id: 'DL2024001', license_type: 'LMV', test_date: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(), test_type: 'PRACTICAL', status: 'SCHEDULED' },
-  { id: '2', applicant_name: 'Priya Patel', application_id: 'DL2024002', license_type: 'MCWG', test_date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(), test_type: 'PRACTICAL', status: 'PASSED', score: 85, remarks: 'Good driving skills', examiner: 'Officer Deshmukh' },
-  { id: '3', applicant_name: 'Amit Kumar', application_id: 'DL2024003', license_type: 'LMV', test_date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), test_type: 'WRITTEN', status: 'PASSED', score: 92, remarks: 'Excellent knowledge', examiner: 'Officer Singh' },
-  { id: '4', applicant_name: 'Sneha Reddy', application_id: 'DL2024004', license_type: 'HMV', test_date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), test_type: 'PRACTICAL', status: 'FAILED', score: 45, remarks: 'Poor lane discipline, needs more practice', examiner: 'Officer Joshi' },
-  { id: '5', applicant_name: 'Vikram Singh', application_id: 'DL2024005', license_type: 'MCWG', test_date: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(), test_type: 'PRACTICAL', status: 'ABSENT', remarks: 'Did not appear for test' },
-  { id: '6', applicant_name: 'Ananya Gupta', application_id: 'DL2024006', license_type: 'LMV', test_date: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000).toISOString(), test_type: 'WRITTEN', status: 'SCHEDULED' },
-];
+import { dlService } from '@/services';
+import { DLApplication } from '@/types';
+import { ClipboardCheck, CheckCircle2, XCircle, Clock, Search, Calendar, Car, FileText, Award, Loader2 } from 'lucide-react';
 
 const getStatusBadge = (status: string) => {
   switch (status) {
@@ -43,52 +23,82 @@ const getStatusBadge = (status: string) => {
 
 const TestResults: React.FC = () => {
   const { toast } = useToast();
-  const [results, setResults] = useState<TestResult[]>(mockTestResults);
+  const [applications, setApplications] = useState<DLApplication[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
-  const [selectedTest, setSelectedTest] = useState<TestResult | null>(null);
+  const [selectedTest, setSelectedTest] = useState<DLApplication | null>(null);
   const [recordDialogOpen, setRecordDialogOpen] = useState(false);
   const [testScore, setTestScore] = useState('');
   const [testRemarks, setTestRemarks] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const filteredResults = results.filter(result => {
-    const matchesSearch = result.applicant_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         result.application_id.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'ALL' || result.status === statusFilter;
+  useEffect(() => {
+    fetchApplications();
+  }, []);
+
+  const fetchApplications = async () => {
+    try {
+      const response = await dlService.listApplications();
+      const data = (response.data as any).applications || response.data || [];
+      const testScheduled = Array.isArray(data) ? data.filter((app: DLApplication) => 
+        app.status === 'TEST_SCHEDULED' || app.status === 'TEST_PASSED' || app.status === 'TEST_FAILED'
+      ) : [];
+      setApplications(testScheduled);
+    } catch (error: any) {
+      console.error('Error fetching applications:', error);
+      toast({ title: 'Error', description: 'Failed to fetch test results', variant: 'destructive' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRecordResult = async (result: 'PASS' | 'FAIL' | 'ABSENT') => {
+    if (!selectedTest) return;
+    
+    setIsSubmitting(true);
+    try {
+      await dlService.submitTestResult(selectedTest.id, result, parseInt(testScore), testRemarks);
+      toast({
+        title: 'Success',
+        description: `Test result recorded successfully`,
+      });
+      setRecordDialogOpen(false);
+      setSelectedTest(null);
+      setTestScore('');
+      setTestRemarks('');
+      fetchApplications();
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.response?.data?.message || 'Failed to record result', variant: 'destructive' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const getStatusFromApp = (status: string) => {
+    if (status === 'TEST_PASSED') return 'PASSED';
+    if (status === 'TEST_FAILED') return 'FAILED';
+    if (status === 'TEST_SCHEDULED') return 'SCHEDULED';
+    return status;
+  };
+
+  const filteredResults = applications.filter(app => {
+    const appStatus = getStatusFromApp(app.status);
+    const matchesSearch = app.id.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === 'ALL' || appStatus === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
-  const handleRecordResult = (result: 'PASSED' | 'FAILED') => {
-    if (!selectedTest) return;
-    
-    setResults(prev => prev.map(r => 
-      r.id === selectedTest.id 
-        ? { ...r, status: result, score: parseInt(testScore) || undefined, remarks: testRemarks, examiner: 'Current Officer' }
-        : r
-    ));
-    
-    toast({
-      title: 'Result Recorded',
-      description: `Test result for ${selectedTest.applicant_name} marked as ${result}`,
-    });
-    
-    setRecordDialogOpen(false);
-    setSelectedTest(null);
-    setTestScore('');
-    setTestRemarks('');
-  };
+  const scheduledCount = applications.filter(a => a.status === 'TEST_SCHEDULED').length;
+  const passedCount = applications.filter(a => a.status === 'TEST_PASSED').length;
+  const failedCount = applications.filter(a => a.status === 'TEST_FAILED').length;
 
-  const scheduledCount = results.filter(r => r.status === 'SCHEDULED').length;
-  const passedCount = results.filter(r => r.status === 'PASSED').length;
-  const failedCount = results.filter(r => r.status === 'FAILED').length;
+  if (isLoading) {
+    return <div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+  }
 
   return (
     <div className="space-y-6 fade-in-up">
-      <div className="flex items-center gap-2 p-3 rounded-lg bg-primary/10 border border-primary/20">
-        <Info className="h-4 w-4 text-primary" />
-        <span className="text-sm text-primary">Demo Mode: Displaying sample test results</span>
-      </div>
-
       <div>
         <h1 className="text-2xl font-bold">Test Results</h1>
         <p className="text-muted-foreground">Manage driving test results and schedules</p>
@@ -101,7 +111,7 @@ const TestResults: React.FC = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Total Tests</p>
-                <p className="text-2xl font-bold">{results.length}</p>
+                <p className="text-2xl font-bold">{applications.length}</p>
               </div>
               <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
                 <ClipboardCheck className="h-6 w-6 text-primary-foreground" />
@@ -194,41 +204,41 @@ const TestResults: React.FC = () => {
             </div>
           ) : (
             <div className="space-y-3">
-              {filteredResults.map((result, index) => (
-                <motion.div key={result.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.05 }}>
+              {filteredResults.map((app, index) => {
+                const appStatus = getStatusFromApp(app.status);
+                return (
+                <motion.div key={app.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.05 }}>
                   <div className="flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors">
                     <div className="flex items-center gap-4">
-                      <div className={`h-12 w-12 rounded-xl flex items-center justify-center ${result.status === 'PASSED' ? 'bg-success/20 text-success' : result.status === 'FAILED' ? 'bg-destructive/20 text-destructive' : result.status === 'SCHEDULED' ? 'bg-info/20 text-info' : 'bg-warning/20 text-warning'}`}>
-                        {result.test_type === 'WRITTEN' ? <FileText className="h-6 w-6" /> : <Car className="h-6 w-6" />}
+                      <div className={`h-12 w-12 rounded-xl flex items-center justify-center ${appStatus === 'PASSED' ? 'bg-success/20 text-success' : appStatus === 'FAILED' ? 'bg-destructive/20 text-destructive' : 'bg-info/20 text-info'}`}>
+                        <Car className="h-6 w-6" />
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
-                          <p className="font-semibold">{result.applicant_name}</p>
-                          <Badge variant="outline">{result.license_type}</Badge>
+                          <p className="font-semibold">Application {app.id.slice(0, 8)}</p>
+                          <Badge variant="outline">{app.license_type}</Badge>
                         </div>
                         <p className="text-sm text-muted-foreground">
-                          {result.application_id} • {result.test_type === 'WRITTEN' ? 'Written Test' : 'Practical Test'}
+                          User: {app.user_id.slice(0, 8)}...
                         </p>
                         <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
                           <Calendar className="h-3 w-3" />
-                          {new Date(result.test_date).toLocaleDateString()}
-                          {result.score !== undefined && (
+                          {app.test_scheduled_date ? new Date(app.test_scheduled_date).toLocaleDateString() : 'Not scheduled'}
+                          {app.test_result && (
                             <>
                               <span>•</span>
-                              <Award className="h-3 w-3" />
-                              Score: {result.score}/100
+                              Result: {app.test_result}
                             </>
                           )}
                         </div>
-                        {result.remarks && <p className="text-xs text-muted-foreground mt-1 italic">{result.remarks}</p>}
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      {getStatusBadge(result.status)}
-                      {result.status === 'SCHEDULED' && (
-                        <Dialog open={recordDialogOpen && selectedTest?.id === result.id} onOpenChange={(open) => {
+                      {getStatusBadge(appStatus)}
+                      {app.status === 'TEST_SCHEDULED' && (
+                        <Dialog open={recordDialogOpen && selectedTest?.id === app.id} onOpenChange={(open) => {
                           setRecordDialogOpen(open);
-                          if (open) setSelectedTest(result);
+                          if (open) setSelectedTest(app);
                         }}>
                           <DialogTrigger asChild>
                             <Button size="sm">Record Result</Button>
@@ -237,7 +247,7 @@ const TestResults: React.FC = () => {
                             <DialogHeader>
                               <DialogTitle>Record Test Result</DialogTitle>
                               <DialogDescription>
-                                Record the result for {result.applicant_name}'s {result.test_type.toLowerCase()} test
+                                Record the result for Application {app.id.slice(0, 12)}...
                               </DialogDescription>
                             </DialogHeader>
                             <div className="space-y-4 py-4">
@@ -262,11 +272,16 @@ const TestResults: React.FC = () => {
                               </div>
                             </div>
                             <DialogFooter className="flex gap-2">
-                              <Button variant="destructive" onClick={() => handleRecordResult('FAILED')}>
-                                <XCircle className="h-4 w-4 mr-2" />Mark Failed
+                              <Button variant="outline" onClick={() => handleRecordResult('ABSENT')} disabled={isSubmitting}>
+                                <XCircle className="h-4 w-4 mr-2" />Mark Absent
                               </Button>
-                              <Button onClick={() => handleRecordResult('PASSED')}>
-                                <CheckCircle2 className="h-4 w-4 mr-2" />Mark Passed
+                              <Button variant="destructive" onClick={() => handleRecordResult('FAIL')} disabled={isSubmitting}>
+                                {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <XCircle className="h-4 w-4 mr-2" />}
+                                Mark Failed
+                              </Button>
+                              <Button onClick={() => handleRecordResult('PASS')} disabled={isSubmitting}>
+                                {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
+                                Mark Passed
                               </Button>
                             </DialogFooter>
                           </DialogContent>
@@ -275,7 +290,7 @@ const TestResults: React.FC = () => {
                     </div>
                   </div>
                 </motion.div>
-              ))}
+              )})}
             </div>
           )}
         </CardContent>

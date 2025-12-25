@@ -61,6 +61,16 @@ export const dlService = {
     return response.data;
   },
 
+  // Submit test result (officer)
+  submitTestResult: async (applicationId: string, result: 'PASS' | 'FAIL' | 'ABSENT', score?: number, remarks?: string): Promise<ApiResponse<DLApplication>> => {
+    const response = await api.post(`/dl/applications/${applicationId}/test-result`, {
+      result,
+      score,
+      remarks,
+    });
+    return response.data;
+  },
+
   // Approve DL application (admin)
   approveApplication: async (applicationId: string, dlNumber: string, testResult: string): Promise<ApiResponse<DLApplication>> => {
     const response = await api.put(`/dl/applications/${applicationId}/approve`, {
