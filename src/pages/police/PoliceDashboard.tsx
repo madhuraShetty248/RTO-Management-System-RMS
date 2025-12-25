@@ -1,25 +1,116 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
-import { AlertTriangle, FileText, TrendingUp, Users, Clock, CheckCircle2 } from 'lucide-react';
+import { challanService } from '@/services';
+import { AlertTriangle, FileText, TrendingUp, Clock, Loader2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
-const stats = [
-  { title: 'Challans Issued Today', value: '24', icon: AlertTriangle, color: 'from-destructive to-warning', change: '+8 from yesterday' },
-  { title: 'Total This Month', value: '342', icon: FileText, color: 'from-primary to-secondary', change: '+12% from last month' },
-  { title: 'Revenue Generated', value: '₹1.2L', icon: TrendingUp, color: 'from-success to-accent', change: 'This month' },
-  { title: 'Pending Disputes', value: '15', icon: Clock, color: 'from-warning to-primary', change: '3 new today' },
-];
-
-const recentChallans = [
-  { id: '1', vehicle: 'MH01AB1234', violation: 'Over Speeding', amount: 1000, time: '10 mins ago' },
-  { id: '2', vehicle: 'MH02CD5678', violation: 'Signal Jump', amount: 500, time: '25 mins ago' },
-  { id: '3', vehicle: 'MH03EF9012', violation: 'No Helmet', amount: 500, time: '1 hour ago' },
-  { id: '4', vehicle: 'MH04GH3456', violation: 'Wrong Parking', amount: 200, time: '2 hours ago' },
-];
+const violationLabels: Record<string, string> = {
+  OVER_SPEEDING: 'Over Speeding',
+  SIGNAL_JUMP: 'Signal Jump',
+  NO_HELMET: 'No Helmet',
+  NO_SEATBELT: 'No Seatbelt',
+  DRUNK_DRIVING: 'Drunk Driving',
+  WRONG_PARKING: 'Wrong Parking',
+  NO_LICENSE: 'No License',
+  NO_INSURANCE: 'No Insurance',
+  OTHER: 'Other',
+};
 
 const PoliceDashboard: React.FC = () => {
   const { user } = useAuth();
+  const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(true);
+  const [challansToday, setChallansToday] = useState(0);
+  const [challansThisMonth, setChallansThisMonth] = useState(0);
+  const [revenueThisMonth, setRevenueThisMonth] = useState(0);
+  const [disputedCount, setDisputedCount] = useState(0);
+  const [recentChallans, setRecentChallans] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  const fetchDashboardData = async () => {
+    try {
+      const response = await challanService.listChallans();
+      const challans = (response.data as any).challans || response.data || [];
+
+      if (Array.isArray(challans)) {
+        const now = new Date();
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+        // Calculate today's challans
+        const todayChallans = challans.filter((c: any) => {
+          const date = new Date((c as any).issued_at || c.created_at);
+          return date >= todayStart;
+        });
+        setChallansToday(todayChallans.length);
+
+        // Calculate this month's challans
+        const monthChallans = challans.filter((c: any) => {
+          const date = new Date((c as any).issued_at || c.created_at);
+          return date >= monthStart;
+        });
+        setChallansThisMonth(monthChallans.length);
+
+        // Calculate revenue this month
+        const revenue = monthChallans.reduce((sum: number, c: any) => sum + Number(c.amount), 0);
+        setRevenueThisMonth(revenue);
+
+        // Count disputed challans
+        const disputed = challans.filter((c: any) => c.status === 'DISPUTED');
+        setDisputedCount(disputed.length);
+
+        // Get recent challans (last 5)
+        const recent = challans
+          .sort((a: any, b: any) => {
+            const dateA = new Date((a as any).issued_at || a.created_at).getTime();
+            const dateB = new Date((b as any).issued_at || b.created_at).getTime();
+            return dateB - dateA;
+          })
+          .slice(0, 5)
+          .map((c: any) => ({
+            id: c.id,
+            vehicle: c.registration_number || c.vehicle_id.slice(0, 8),
+            violation: violationLabels[c.violation_type] || c.violation_type,
+            amount: Number(c.amount),
+            time: getRelativeTime(new Date((c as any).issued_at || c.created_at)),
+          }));
+        setRecentChallans(recent);
+      }
+    } catch (error: any) {
+      console.error('Error fetching dashboard data:', error);
+      toast({ title: 'Error', description: 'Failed to fetch dashboard data', variant: 'destructive' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const getRelativeTime = (date: Date): string => {
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 60) return `${diffMins} mins ago`;
+    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+    return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+  };
+
+  if (isLoading) {
+    return <div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+  }
+
+  const stats = [
+    { title: 'Challans Issued Today', value: challansToday.toString(), icon: AlertTriangle, color: 'from-destructive to-warning', change: 'Today' },
+    { title: 'Total This Month', value: challansThisMonth.toString(), icon: FileText, color: 'from-primary to-secondary', change: 'Current month' },
+    { title: 'Revenue Generated', value: `₹${(revenueThisMonth / 1000).toFixed(1)}K`, icon: TrendingUp, color: 'from-success to-accent', change: 'This month' },
+    { title: 'Pending Disputes', value: disputedCount.toString(), icon: Clock, color: 'from-warning to-primary', change: 'Awaiting review' },
+  ];
 
   return (
     <div className="space-y-6 fade-in-up">
