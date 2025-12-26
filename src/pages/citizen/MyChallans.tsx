@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { challanService, paymentService } from '@/services';
 import { Challan, PaymentMethod } from '@/types';
+import jsPDF from 'jspdf';
 import { 
   AlertTriangle, 
   CreditCard, 
@@ -182,122 +183,154 @@ const MyChallans: React.FC = () => {
   };
 
   const handleDownloadReceipt = (challan: Challan) => {
-    // Generate receipt HTML
-    const receiptHTML = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Payment Receipt</title>
-        <style>
-          body { font-family: Arial, sans-serif; padding: 40px; max-width: 800px; margin: 0 auto; }
-          .header { text-align: center; border-bottom: 2px solid #333; padding-bottom: 20px; margin-bottom: 30px; }
-          .header h1 { margin: 0; color: #333; }
-          .header p { margin: 5px 0; color: #666; }
-          .section { margin-bottom: 25px; }
-          .section-title { font-weight: bold; color: #333; margin-bottom: 10px; border-bottom: 1px solid #ddd; padding-bottom: 5px; }
-          .row { display: flex; justify-content: space-between; padding: 8px 0; }
-          .label { color: #666; }
-          .value { font-weight: bold; color: #333; }
-          .amount { font-size: 24px; color: #10b981; }
-          .footer { margin-top: 40px; padding-top: 20px; border-top: 2px solid #333; text-align: center; color: #666; font-size: 12px; }
-          .stamp { text-align: right; margin-top: 30px; font-style: italic; color: #666; }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <h1>🚗 RTO Management System</h1>
-          <p>Traffic Challan Payment Receipt</p>
-          <p>Regional Transport Office</p>
-        </div>
-        
-        <div class="section">
-          <div class="section-title">PAYMENT DETAILS</div>
-          <div class="row">
-            <span class="label">Receipt No:</span>
-            <span class="value">RTO-${challan.id.slice(0, 8).toUpperCase()}</span>
-          </div>
-          <div class="row">
-            <span class="label">Payment Date:</span>
-            <span class="value">${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}</span>
-          </div>
-          <div class="row">
-            <span class="label">Payment Time:</span>
-            <span class="value">${new Date().toLocaleTimeString('en-IN')}</span>
-          </div>
-          <div class="row">
-            <span class="label">Transaction ID:</span>
-            <span class="value">TXN${Date.now()}</span>
-          </div>
-          <div class="row">
-            <span class="label">Payment Method:</span>
-            <span class="value">${challan.payment_method || 'UPI'}</span>
-          </div>
-        </div>
+    // Generate PDF receipt
+    const doc = new jsPDF();
+    
+    // Header
+    doc.setFillColor(139, 92, 246);
+    doc.rect(0, 0, 210, 40, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(24);
+    doc.text('RTO Management System', 105, 15, { align: 'center' });
+    doc.setFontSize(12);
+    doc.text('Traffic Challan Payment Receipt', 105, 25, { align: 'center' });
+    doc.text('Regional Transport Office', 105, 32, { align: 'center' });
+    
+    // Reset text color
+    doc.setTextColor(0, 0, 0);
+    let yPos = 50;
+    
+    // Payment Details Section
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('PAYMENT DETAILS', 20, yPos);
+    doc.setLineWidth(0.5);
+    doc.line(20, yPos + 2, 190, yPos + 2);
+    yPos += 10;
+    
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Receipt No:`, 20, yPos);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`RTO-${challan.id.slice(0, 8).toUpperCase()}`, 120, yPos);
+    yPos += 7;
+    
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Payment Date:`, 20, yPos);
+    doc.setFont('helvetica', 'bold');
+    doc.text((challan.paid_at ? new Date(challan.paid_at) : new Date()).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' }), 120, yPos);
+    yPos += 7;
+    
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Payment Time:`, 20, yPos);
+    doc.setFont('helvetica', 'bold');
+    doc.text((challan.paid_at ? new Date(challan.paid_at) : new Date()).toLocaleTimeString('en-IN'), 120, yPos);
+    yPos += 7;
+    
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Transaction ID:`, 20, yPos);
+    doc.setFont('helvetica', 'bold');
+    doc.text(challan.transaction_id || `TXN-${challan.id.slice(0, 12)}`, 120, yPos);
+    yPos += 7;
+    
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Payment Method:`, 20, yPos);
+    doc.setFont('helvetica', 'bold');
+    doc.text(challan.payment_method || 'UPI', 120, yPos);
+    yPos += 15;
+    
+    // Challan Information Section
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('CHALLAN INFORMATION', 20, yPos);
+    doc.line(20, yPos + 2, 190, yPos + 2);
+    yPos += 10;
+    
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Challan ID:`, 20, yPos);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.text(challan.id, 120, yPos);
+    doc.setFontSize(10);
+    yPos += 7;
+    
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Violation Type:`, 20, yPos);
+    doc.setFont('helvetica', 'bold');
+    doc.text(violationLabels[challan.violation_type] || challan.violation_type, 120, yPos);
+    yPos += 7;
+    
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Date Issued:`, 20, yPos);
+    doc.setFont('helvetica', 'bold');
+    doc.text((challan.issued_at || challan.created_at) ? new Date(challan.issued_at || challan.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' }) : 'N/A', 120, yPos);
+    yPos += 7;
+    
+    if (challan.location) {
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Location:`, 20, yPos);
+      doc.setFont('helvetica', 'bold');
+      doc.text(challan.location, 120, yPos);
+      yPos += 7;
+    }
+    
+    if (challan.vehicle_number) {
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Vehicle Number:`, 20, yPos);
+      doc.setFont('helvetica', 'bold');
+      doc.text(challan.vehicle_number, 120, yPos);
+      yPos += 7;
+    }
+    
+    yPos += 8;
+    
+    // Amount Section
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('AMOUNT PAID', 20, yPos);
+    doc.line(20, yPos + 2, 190, yPos + 2);
+    yPos += 10;
+    
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Challan Amount:`, 20, yPos);
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(16, 185, 129);
+    doc.text(`₹${Number(challan.amount).toLocaleString('en-IN')}`, 120, yPos);
+    yPos += 10;
+    
+    doc.setFontSize(10);
+    doc.setTextColor(0, 0, 0);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Payment Status:`, 20, yPos);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(16, 185, 129);
+    doc.text('✓ PAID', 120, yPos);
+    
+    // Stamp
+    doc.setTextColor(100, 100, 100);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'italic');
+    yPos += 20;
+    doc.text('*** This is a computer-generated receipt ***', 105, yPos, { align: 'center' });
+    doc.text('Digital Signature Applied', 105, yPos + 5, { align: 'center' });
+    
+    // Footer
+    doc.setFillColor(240, 240, 240);
+    doc.rect(0, 270, 210, 27, 'F');
+    doc.setTextColor(100, 100, 100);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Regional Transport Office - Government Initiative', 105, 278, { align: 'center' });
+    doc.text('For queries, contact: support@rto.gov.in | Helpline: 1800-XXX-XXXX', 105, 283, { align: 'center' });
+    doc.text(`Generated on: ${new Date().toLocaleString('en-IN')}`, 105, 288, { align: 'center' });
+    
+    // Save PDF
+    doc.save(`RTO_Receipt_${challan.id.slice(0, 8)}_${Date.now()}.pdf`);
 
-        <div class="section">
-          <div class="section-title">CHALLAN INFORMATION</div>
-          <div class="row">
-            <span class="label">Challan ID:</span>
-            <span class="value">${challan.id}</span>
-          </div>
-          <div class="row">
-            <span class="label">Violation Type:</span>
-            <span class="value">${violationLabels[challan.violation_type] || challan.violation_type}</span>
-          </div>
-          <div class="row">
-            <span class="label">Date Issued:</span>
-            <span class="value">${new Date(challan.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}</span>
-          </div>
-          ${challan.location ? `<div class="row">
-            <span class="label">Location:</span>
-            <span class="value">${challan.location}</span>
-          </div>` : ''}
-          ${challan.vehicle_number ? `<div class="row">
-            <span class="label">Vehicle Number:</span>
-            <span class="value">${challan.vehicle_number}</span>
-          </div>` : ''}
-          ${challan.description ? `<div class="row">
-            <span class="label">Description:</span>
-            <span class="value">${challan.description}</span>
-          </div>` : ''}
-        </div>
-
-        <div class="section">
-          <div class="section-title">AMOUNT PAID</div>
-          <div class="row">
-            <span class="label">Challan Amount:</span>
-            <span class="value amount">₹${Number(challan.amount).toLocaleString('en-IN')}</span>
-          </div>
-          <div class="row">
-            <span class="label">Payment Status:</span>
-            <span class="value" style="color: #10b981;">✓ PAID</span>
-          </div>
-        </div>
-
-        <div class="stamp">
-          <p>*** This is a computer-generated receipt ***</p>
-          <p>Digital Signature Applied</p>
-        </div>
-
-        <div class="footer">
-          <p>Regional Transport Office - Government Initiative</p>
-          <p>For queries, contact: support@rto.gov.in | Helpline: 1800-XXX-XXXX</p>
-          <p>Generated on: ${new Date().toLocaleString('en-IN')}</p>
-        </div>
-      </body>
-      </html>
-    `;
-
-    // Create blob and download
-    const blob = new Blob([receiptHTML], { type: 'text/html' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `RTO_Receipt_${challan.id.slice(0, 8)}_${Date.now()}.html`;
-    a.click();
-    window.URL.revokeObjectURL(url);
-
-    toast({ title: 'Receipt Downloaded', description: 'Your payment receipt has been downloaded' });
+    toast({ title: 'Receipt Downloaded', description: 'Your payment receipt has been downloaded as PDF' });
   };
 
   const totalUnpaid = challans.filter(c => c.status === 'UNPAID').reduce((sum, c) => sum + Number(c.amount), 0);
