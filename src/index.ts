@@ -21,6 +21,7 @@ import appointmentRoutes from "./routes/appointmentRoutes";
 import notificationRoutes from "./routes/notificationRoutes";
 import analyticsRoutes from "./routes/analyticsRoutes";
 import { connectDB } from "./db";
+import { verifyEmailConnection } from "./utils/emailService";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -56,6 +57,9 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 // Connect to database, then start server
 const startServer = async () => {
   await connectDB();
+  
+  // Verify email service configuration
+  await verifyEmailConnection();
 
   app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);

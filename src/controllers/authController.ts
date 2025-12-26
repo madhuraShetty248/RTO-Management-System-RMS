@@ -15,6 +15,7 @@ import {
   clearResetToken,
   updateUserPassword,
 } from "../models/userModel";
+import { sendOtpEmail } from "../utils/emailService";
 
 const JWT_SECRET = process.env.JWT_SECRET || "your_jwt_secret";
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || "your_refresh_secret";
@@ -169,7 +170,7 @@ export const logout = async (req: AuthRequest, res: Response) => {
   }
 };
 
-// Forgot password - send reset token (simulated)
+// Forgot password - send OTP via email
 export const forgotPassword = async (req: Request, res: Response) => {
   try {
     const { email } = req.body;
@@ -180,43 +181,83 @@ export const forgotPassword = async (req: Request, res: Response) => {
 
     const user = await getUserByEmail(email);
     if (!user) {
-      // Don't reveal if email exists
-      return res.json({ success: true, message: "If email exists, reset link will be sent" });
+      // Don't reveal if email exists for security
+      return res.json({ 
+        success: true, 
+        message: "If the email exists in our system, you will receive an OTP shortly" 
+      });
     }
 
-    const resetToken = jwt.sign({ email }, JWT_SECRET, { expiresIn: "1h" });
-    const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
-    await setResetToken(email, resetToken, expiresAt);
+    // Generate 6-digit OTP
+    const otp = generateOtp();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
-    // In production, send email here
-    console.log(`Reset token for ${email}: ${resetToken}`);
+    // Save OTP to database
+    await setUserOtp(user.id, otp, expiresAt);
 
-    res.json({ success: true, message: "If email exists, reset link will be sent", data: { resetToken } });
+    // Send OTP via email
+    const emailSent = await sendOtpEmail(user.email, otp, user.name);
+
+    if (!emailSent) {
+      console.error('Failed to send OTP email, but OTP is saved in database');
+      // Still return success to not reveal if email exists
+    }
+
+    console.log(`🔐 OTP generated for ${email}: ${otp} (expires in 10 minutes)`);
+
+    res.json({ 
+      success: true, 
+      message: "If the email exists in our system, you will receive an OTP shortly" 
+    });
   } catch (error) {
     console.error("Error in forgot password:", error);
     res.status(500).json({ success: false, message: "Failed to process request" });
   }
 };
 
-// Reset password
+// Reset password with OTP
 export const resetPassword = async (req: Request, res: Response) => {
   try {
-    const { token, newPassword } = req.body;
+    const { email, otp, newPassword } = req.body;
 
-    if (!token || !newPassword) {
-      return res.status(400).json({ success: false, message: "Token and new password are required" });
+    if (!email || !otp || !newPassword) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Email, OTP, and new password are required" 
+      });
     }
 
-    const user = await getUserByResetToken(token);
+    // Validate password strength
+    if (newPassword.length < 6) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Password must be at least 6 characters long" 
+      });
+    }
+
+    // Verify OTP
+    const user = await verifyUserOtp(email, otp);
     if (!user) {
-      return res.status(400).json({ success: false, message: "Invalid or expired reset token" });
+      return res.status(400).json({ 
+        success: false, 
+        message: "Invalid or expired OTP" 
+      });
     }
 
+    // Hash new password and update
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     await updateUserPassword(user.id, hashedPassword);
+    await clearUserOtp(user.id);
+
+    // Also clear any reset tokens
     await clearResetToken(user.id);
 
-    res.json({ success: true, message: "Password reset successful" });
+    console.log(`✅ Password reset successful for user: ${email}`);
+
+    res.json({ 
+      success: true, 
+      message: "Password reset successful. You can now login with your new password" 
+    });
   } catch (error) {
     console.error("Error resetting password:", error);
     res.status(500).json({ success: false, message: "Failed to reset password" });
