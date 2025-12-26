@@ -2,6 +2,8 @@ import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
+import { useNotifications } from '@/hooks/use-notifications';
+import { challanService } from '@/services';
 import { cn } from '@/lib/utils';
 import {
   LayoutDashboard,
@@ -54,11 +56,11 @@ const getSidebarItems = (role: string): SidebarItem[] => {
         { icon: User, label: 'My Profile', href: 'profile' },
         { icon: Car, label: 'My Vehicles', href: 'vehicles' },
         { icon: CreditCard, label: 'Driving License', href: 'license' },
-        { icon: AlertTriangle, label: 'Challans', href: 'challans', badge: 2 },
+        { icon: AlertTriangle, label: 'Challans', href: 'challans' },
         { icon: Wallet, label: 'Payments', href: 'payments' },
         { icon: Calendar, label: 'Appointments', href: 'appointments' },
         { icon: FileText, label: 'Documents', href: 'documents' },
-        { icon: Bell, label: 'Notifications', href: 'notifications', badge: 5 },
+        { icon: Bell, label: 'Notifications', href: 'notifications' },
       ];
 
     case 'POLICE':
@@ -73,7 +75,7 @@ const getSidebarItems = (role: string): SidebarItem[] => {
     case 'RTO_OFFICER':
       return [
         ...baseItems,
-        { icon: ClipboardCheck, label: 'Applications', href: 'applications', badge: 8 },
+        { icon: ClipboardCheck, label: 'Applications', href: 'applications' },
         { icon: FileCheck, label: 'Document Verification', href: 'verification' },
         { icon: Search, label: 'Test Results', href: 'test-results' },
         { icon: Calendar, label: 'Appointments', href: 'appointments' },
@@ -134,13 +136,59 @@ const getRoleBasePath = (role: string): string => {
 
 export const DashboardSidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
   const { user, logout } = useAuth();
+  const { unreadCount } = useNotifications(true);
+  const [pendingChallansCount, setPendingChallansCount] = React.useState(0);
+  const [pendingApplicationsCount, setPendingApplicationsCount] = React.useState(0);
   const location = useLocation();
   const navigate = useNavigate();
+
+  // Fetch real badge counts
+  React.useEffect(() => {
+    const fetchCounts = async () => {
+      if (!user) return;
+
+      try {
+        // Fetch pending challans for citizen
+        if (user.role === 'CITIZEN') {
+          const response = await challanService.getMyChallans();
+          if (response.success && response.data) {
+            const challans = (response.data as any).challans || response.data || [];
+            const pending = Array.isArray(challans) ? challans.filter((c: any) => c.status === 'PENDING').length : 0;
+            setPendingChallansCount(pending);
+          }
+        }
+
+        // Fetch pending applications for RTO Officer
+        if (user.role === 'RTO_OFFICER') {
+          // TODO: Add API call to get pending applications count
+          // For now, set to 0 to remove mock data
+          setPendingApplicationsCount(0);
+        }
+      } catch (error) {
+        console.error('Error fetching badge counts:', error);
+      }
+    };
+
+    fetchCounts();
+  }, [user]);
 
   if (!user) return null;
 
   const basePath = getRoleBasePath(user.role);
-  const sidebarItems = getSidebarItems(user.role);
+  const sidebarItems = getSidebarItems(user.role).map(item => {
+    // Update badges with real data
+    if (item.label === 'Notifications') {
+      return { ...item, badge: unreadCount > 0 ? unreadCount : undefined };
+    }
+    if (item.label === 'Challans' && user.role === 'CITIZEN') {
+      return { ...item, badge: pendingChallansCount > 0 ? pendingChallansCount : undefined };
+    }
+    if (item.label === 'Applications' && user.role === 'RTO_OFFICER') {
+      return { ...item, badge: pendingApplicationsCount > 0 ? pendingApplicationsCount : undefined };
+    }
+    // Remove mock badges
+    return { ...item, badge: undefined };
+  });
 
   const handleLogout = async () => {
     await logout();

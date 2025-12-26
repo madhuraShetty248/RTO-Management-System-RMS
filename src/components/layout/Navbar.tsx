@@ -2,6 +2,7 @@ import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
+import { useNotifications } from '@/hooks/use-notifications';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -38,6 +39,7 @@ const navLinks = [
 
 export const Navbar: React.FC = () => {
   const { user, isAuthenticated, logout } = useAuth();
+  const { unreadCount } = useNotifications(true);
   const location = useLocation();
   const navigate = useNavigate();
   const [isScrolled, setIsScrolled] = React.useState(false);
@@ -117,11 +119,15 @@ export const Navbar: React.FC = () => {
                 </Button>
 
                 {/* Notifications */}
-                <Button variant="ghost" size="icon" className="relative">
-                  <Bell className="h-5 w-5" />
-                  <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs">
-                    3
-                  </Badge>
+                <Button variant="ghost" size="icon" className="relative" asChild>
+                  <Link to={`${getDashboardLink()}/notifications`}>
+                    <Bell className="h-5 w-5" />
+                    {unreadCount > 0 && (
+                      <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs">
+                        {unreadCount}
+                      </Badge>
+                    )}
+                  </Link>
                 </Button>
 
                 {/* User Menu */}

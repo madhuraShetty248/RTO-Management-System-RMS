@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
@@ -149,12 +150,22 @@ const CitizenDashboard: React.FC = () => {
             <CardTitle className="flex items-center gap-2"><TrendingUp className="h-5 w-5 text-primary" />Quick Actions</CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-2 gap-3">
-            {['Register Vehicle', 'Apply for DL', 'Pay Challan', 'Book Appointment'].map((action, i) => (
-              <button key={i} className="p-4 rounded-xl bg-muted/50 hover:bg-primary/10 hover:border-primary/30 border border-transparent transition-all text-left">
-                <ArrowUpRight className="h-4 w-4 text-primary mb-2" />
-                <span className="text-sm font-medium">{action}</span>
-              </button>
-            ))}
+            <Link to="/citizen/vehicles" className="p-4 rounded-xl bg-muted/50 hover:bg-primary/10 hover:border-primary/30 border border-transparent transition-all text-left group">
+              <Car className="h-4 w-4 text-primary mb-2 group-hover:scale-110 transition-transform" />
+              <span className="text-sm font-medium">Register Vehicle</span>
+            </Link>
+            <Link to="/citizen/license" className="p-4 rounded-xl bg-muted/50 hover:bg-primary/10 hover:border-primary/30 border border-transparent transition-all text-left group">
+              <CreditCard className="h-4 w-4 text-primary mb-2 group-hover:scale-110 transition-transform" />
+              <span className="text-sm font-medium">Apply for DL</span>
+            </Link>
+            <Link to="/citizen/challans" className="p-4 rounded-xl bg-muted/50 hover:bg-primary/10 hover:border-primary/30 border border-transparent transition-all text-left group">
+              <AlertTriangle className="h-4 w-4 text-primary mb-2 group-hover:scale-110 transition-transform" />
+              <span className="text-sm font-medium">Pay Challan</span>
+            </Link>
+            <Link to="/citizen/appointments" className="p-4 rounded-xl bg-muted/50 hover:bg-primary/10 hover:border-primary/30 border border-transparent transition-all text-left group">
+              <Calendar className="h-4 w-4 text-primary mb-2 group-hover:scale-110 transition-transform" />
+              <span className="text-sm font-medium">Book Appointment</span>
+            </Link>
           </CardContent>
         </Card>
 

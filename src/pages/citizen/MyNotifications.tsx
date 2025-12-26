@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { useNotifications } from '@/hooks/use-notifications';
 import { notificationService } from '@/services';
 import { Notification } from '@/types';
 import { Bell, CheckCircle2, Loader2, Trash2, AlertTriangle, Calendar, CreditCard } from 'lucide-react';
@@ -18,50 +19,30 @@ const getNotificationIcon = (message: string) => {
 
 const MyNotifications: React.FC = () => {
   const { toast } = useToast();
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { notifications, isLoading, refetch } = useNotifications();
+  const [localNotifications, setLocalNotifications] = useState<Notification[]>([]);
 
   useEffect(() => {
-    fetchNotifications();
-  }, []);
-
-  const fetchNotifications = async () => {
-    try {
-      const response = await notificationService.getMyNotifications();
-      if (response.success && response.data) {
-        // Extract notifications array from nested response structure
-        const notificationsData = (response.data as any).notifications || response.data || [];
-        if (Array.isArray(notificationsData)) {
-          setNotifications(notificationsData);
-        } else {
-          setNotifications([]);
-        }
-      } else {
-        setNotifications([]);
-      }
-    } catch (error) {
-      console.error('Error fetching notifications:', error);
-      setNotifications([]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    setLocalNotifications(notifications);
+  }, [notifications]);
 
   const handleMarkAsRead = async (id: string) => {
     try {
       await notificationService.markAsRead(id);
-      setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+      setLocalNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+      refetch(); // Refetch to update badge counts
     } catch (error) {
       console.error('Failed to mark as read');
     }
   };
 
-  const handleMarkAllAsRead = () => {
-    notifications.filter(n => !n.read).forEach(n => handleMarkAsRead(n.id));
+  const handleMarkAllAsRead = async () => {
+    const unreadNotifications = localNotifications.filter(n => !n.read);
+    await Promise.all(unreadNotifications.map(n => handleMarkAsRead(n.id)));
     toast({ title: 'Success', description: 'All notifications marked as read' });
   };
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const unreadCount = localNotifications.filter(n => !n.read).length;
 
   if (isLoading) {
     return <div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
@@ -81,7 +62,7 @@ const MyNotifications: React.FC = () => {
         )}
       </div>
 
-      {notifications.length === 0 ? (
+      {localNotifications.length === 0 ? (
         <Card className="glass-card">
           <CardContent className="py-16 text-center">
             <Bell className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
@@ -91,7 +72,7 @@ const MyNotifications: React.FC = () => {
         </Card>
       ) : (
         <div className="space-y-3">
-          {notifications.map((notification, index) => {
+          {localNotifications.map((notification, index) => {
             const IconComponent = getNotificationIcon(notification.message);
             return (
               <motion.div key={notification.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.05 }}>
