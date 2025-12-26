@@ -183,7 +183,7 @@ const GlobePoints = () => {
 
   useFrame((state) => {
     if (globeRef.current) {
-      globeRef.current.rotation.y += 0.001;
+      globeRef.current.rotation.y += 0.003;
     }
   });
 
@@ -320,7 +320,7 @@ const DigitalGlobe: React.FC = () => {
           enableZoom={false}
           enablePan={false}
           autoRotate
-          autoRotateSpeed={0.3}
+          autoRotateSpeed={0.8}
           minPolarAngle={Math.PI / 3}
           maxPolarAngle={Math.PI / 1.5}
         />

@@ -23,17 +23,23 @@ const VerifyOTP: React.FC = () => {
       return;
     }
     
+    // Navigate to reset password page with email and OTP
+    navigate(`/auth/reset-password?email=${encodeURIComponent(email)}&otp=${otp}`);
+  };
+
+  const handleResendOTP = async () => {
     setIsLoading(true);
     try {
-      const response = await authService.verifyOtp(email, otp);
-      if (response.success && response.data?.resetToken) {
-        toast({ title: 'OTP Verified!', description: 'You can now reset your password.' });
-        navigate(`/auth/reset-password?token=${encodeURIComponent(response.data.resetToken)}`);
-      }
+      await authService.forgotPassword(email);
+      toast({
+        title: 'OTP Resent!',
+        description: 'Check your email for the new verification code.',
+      });
+      setOtp('');
     } catch (error: any) {
       toast({
-        title: 'Verification Failed',
-        description: error.response?.data?.message || 'Invalid or expired OTP',
+        title: 'Error',
+        description: error.response?.data?.message || 'Failed to resend OTP',
         variant: 'destructive',
       });
     } finally {
@@ -75,16 +81,30 @@ const VerifyOTP: React.FC = () => {
                 </InputOTP>
               </div>
 
+              <p className="text-sm text-center text-muted-foreground">
+                OTP is valid for 10 minutes
+              </p>
+
               <Button type="submit" className="btn-gradient w-full" disabled={isLoading || otp.length !== 6}>
-                {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Verify OTP <ArrowRight className="ml-2 h-4 w-4" /></>}
+                {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Continue <ArrowRight className="ml-2 h-4 w-4" /></>}
               </Button>
             </form>
 
-            <div className="mt-6 text-center">
-              <Link to="/auth/forgot-password" className="text-sm text-muted-foreground hover:text-primary inline-flex items-center gap-1">
-                <ArrowLeft className="h-4 w-4" />
-                Resend OTP
-              </Link>
+            <div className="mt-6 text-center space-y-2">
+              <button
+                type="button"
+                onClick={handleResendOTP}
+                disabled={isLoading}
+                className="text-sm text-muted-foreground hover:text-primary"
+              >
+                {isLoading ? 'Sending...' : "Didn't receive OTP? Resend"}
+              </button>
+              <div>
+                <Link to="/auth/forgot-password" className="text-sm text-muted-foreground hover:text-primary inline-flex items-center gap-1">
+                  <ArrowLeft className="h-4 w-4" />
+                  Back to Forgot Password
+                </Link>
+              </div>
             </div>
           </CardContent>
         </Card>
