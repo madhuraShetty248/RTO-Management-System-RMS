@@ -213,7 +213,7 @@ const Index: React.FC = () => {
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.8, delay: 0.3 }}
-              className="hidden lg:block h-[500px] relative"
+              className="h-[300px] sm:h-[350px] md:h-[400px] lg:h-[500px] relative order-first lg:order-last mb-8 lg:mb-0"
             >
               <Suspense fallback={
                 <div className="w-full h-full flex items-center justify-center">
