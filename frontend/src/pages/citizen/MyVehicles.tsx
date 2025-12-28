@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { vehicleService, rtoService } from '@/services';
 import { Vehicle, RTOOffice, VehicleType, FuelType } from '@/types';
-import { Car, Plus, Eye, RefreshCw, Trash2, Loader2, CheckCircle2, Clock, XCircle, AlertTriangle } from 'lucide-react';
+import { Car, Plus, Eye, RefreshCw, Trash2, Loader2, CheckCircle2, Clock, XCircle, AlertTriangle, QrCode } from 'lucide-react';
 
 const vehicleTypes: VehicleType[] = ['CAR', 'MOTORCYCLE', 'TRUCK', 'BUS', 'AUTO', 'OTHER'];
 const fuelTypes: FuelType[] = ['PETROL', 'DIESEL', 'ELECTRIC', 'HYBRID', 'CNG', 'LPG'];
@@ -370,6 +370,41 @@ const MyVehicles: React.FC = () => {
                   <p className="font-medium">{new Date(selectedVehicle.created_at).toLocaleDateString()}</p>
                 </div>
               </div>
+
+              {/* QR Code and Digital Signature Section */}
+              {selectedVehicle.status === 'APPROVED' && (selectedVehicle.qr_code_data || selectedVehicle.digital_signature) && (
+                <div className="border-t pt-4 mt-4">
+                  <h3 className="font-semibold mb-4 flex items-center gap-2">
+                    <QrCode className="h-4 w-4" />
+                    Verification Details
+                  </h3>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    {selectedVehicle.qr_code_data && (
+                      <div className="space-y-2">
+                        <Label className="text-muted-foreground">QR Code</Label>
+                        <div className="bg-white p-4 rounded-lg inline-block">
+                          <img 
+                            src={selectedVehicle.qr_code_data} 
+                            alt="Vehicle QR Code" 
+                            className="w-48 h-48"
+                          />
+                        </div>
+                        <p className="text-xs text-muted-foreground">Scan to verify vehicle details</p>
+                      </div>
+                    )}
+                    {selectedVehicle.digital_signature && (
+                      <div className="space-y-2">
+                        <Label className="text-muted-foreground">Digital Signature</Label>
+                        <div className="bg-muted/50 p-3 rounded-lg">
+                          <p className="font-mono text-xs break-all">{selectedVehicle.digital_signature}</p>
+                        </div>
+                        <p className="text-xs text-muted-foreground">Cryptographic signature for authenticity</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <div className="flex justify-end pt-4">
                 <Button variant="outline" onClick={() => setIsViewDialogOpen(false)}>Close</Button>
               </div>

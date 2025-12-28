@@ -11,7 +11,9 @@ CREATE TABLE IF NOT EXISTS driving_licenses (
     expiry_date DATE NOT NULL,
     status TEXT NOT NULL DEFAULT 'ACTIVE',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    qr_code_data TEXT,
+    digital_signature TEXT
 );
 
 -- Index for faster queries

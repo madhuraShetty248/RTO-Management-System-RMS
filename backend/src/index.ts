@@ -27,8 +27,13 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
+import documentRoutes from "./routes/documentRoutes";
+// ... imports
+
+// Middleware
 app.use(cors()); // Enable CORS for all routes
 app.use(express.json());
+app.use("/uploads", express.static("uploads")); // Serve uploaded files
 
 // Routes
 app.use(healthRoutes);
@@ -44,6 +49,8 @@ app.use(paymentRoutes);
 app.use(appointmentRoutes);
 app.use(notificationRoutes);
 app.use(analyticsRoutes);
+app.use(documentRoutes);
+
 
 // Global error handler
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
