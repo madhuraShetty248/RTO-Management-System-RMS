@@ -223,7 +223,7 @@ npm run dev
 
 ---
 
-## 📝 Developer Notes   ← ADD HERE
+## 📝 Developer Notes 
 
 - Ensure PostgreSQL service is running before starting the backend server.
 - Double-check `.env` variables to avoid database connection issues.
