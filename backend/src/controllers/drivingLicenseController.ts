@@ -6,8 +6,11 @@ import {
   getDrivingLicenseByUserId,
   getDrivingLicenseByNumber,
   renewDrivingLicense,
+  updateLicenseQrAndSignature,
 } from "../models/drivingLicenseModel";
 import { createNotification } from "../models/notificationModel";
+import { generateQrCode } from "../utils/qrService";
+import { generateDigitalSignature } from "../utils/cryptoService";
 
 // Approve a DL application (RTO_ADMIN only)
 export const approveApplication = async (req: AuthRequest, res: Response) => {
@@ -37,7 +40,28 @@ export const approveApplication = async (req: AuthRequest, res: Response) => {
 
     await approveDlApplication(id, adminId);
 
-    const license = await createDrivingLicense(application.user_id, application.license_type, application.rto_office_id, dl_number);
+    let license = await createDrivingLicense(application.user_id, application.license_type, application.rto_office_id, dl_number);
+
+    // Generate Digital Signature
+    const signatureData = {
+      id: license.id,
+      dlNo: license.dl_number,
+      type: license.license_type,
+      user_id: license.user_id,
+      expiry: license.expiry_date
+    };
+    const signature = generateDigitalSignature(signatureData);
+
+    // Generate QR Code
+    const qrData = JSON.stringify({
+      dlNo: license.dl_number,
+      type: license.license_type,
+      sig: signature
+    });
+    const qrCode = await generateQrCode(qrData);
+
+    // Update License
+    license = await updateLicenseQrAndSignature(license.id, qrCode, signature);
 
     await createNotification(application.user_id, `Your driving license has been issued! DL Number: ${license.dl_number}`);
 

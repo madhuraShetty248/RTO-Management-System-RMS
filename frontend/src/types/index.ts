@@ -118,6 +118,8 @@ export interface Vehicle {
   verified_at?: string;
   approved_by?: string;
   approved_at?: string;
+  qr_code_data?: string;
+  digital_signature?: string;
   created_at: string;
   updated_at: string;
 }
@@ -132,6 +134,8 @@ export interface DrivingLicense {
   expiry_date: string;
   rto_office_id: string;
   status: 'ACTIVE' | 'EXPIRED' | 'SUSPENDED' | 'REVOKED';
+  qr_code_data?: string;
+  digital_signature?: string;
   created_at: string;
   updated_at: string;
 }

@@ -21,7 +21,9 @@ CREATE TABLE IF NOT EXISTS vehicles (
     approved_at TIMESTAMP,
     scrapped_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    qr_code_data TEXT,
+    digital_signature TEXT
 );
 
 -- Vehicle ownership transfer history

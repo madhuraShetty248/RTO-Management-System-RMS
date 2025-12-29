@@ -10,8 +10,11 @@ import {
   createVehicleTransfer,
   approveVehicleTransfer,
   scrapVehicle,
+  updateVehicleQrAndSignature,
 } from "../models/vehicleModel";
 import { createNotification } from "../models/notificationModel";
+import { generateQrCode } from "../utils/qrService";
+import { generateDigitalSignature } from "../utils/cryptoService";
 
 // Register a new vehicle (Citizen)
 export const registerNewVehicle = async (req: AuthRequest, res: Response) => {
@@ -126,13 +129,36 @@ export const approveVehicleRegistration = async (req: AuthRequest, res: Response
       return res.status(400).json({ success: false, message: "Registration number is required" });
     }
 
-    const vehicle = await approveVehicle(id, adminId, registration_number);
+    let vehicle = await approveVehicle(id, adminId, registration_number);
 
     if (!vehicle) {
       return res.status(404).json({ success: false, message: "Vehicle not found or not verified yet" });
     }
 
-    await createNotification(vehicle.owner_id, `Your vehicle has been registered with number: ${registration_number}`);
+    // Generate Digital Signature
+    const signatureData = {
+      id: vehicle.id,
+      regNo: vehicle.registration_number,
+      chassis: vehicle.chassis_number,
+      engine: vehicle.engine_number,
+      owner: vehicle.owner_id
+    };
+    const signature = generateDigitalSignature(signatureData);
+
+    // Generate QR Code
+    const qrData = JSON.stringify({
+      regNo: vehicle.registration_number,
+      chassis: vehicle.chassis_number,
+      sig: signature
+    });
+    const qrCode = await generateQrCode(qrData);
+
+    // Update Vehicle
+    vehicle = await updateVehicleQrAndSignature(vehicle.id, qrCode, signature);
+
+    if (vehicle) {
+        await createNotification(vehicle.owner_id, `Your vehicle has been registered with number: ${registration_number}`);
+    }
 
     res.json({ success: true, message: "Vehicle registration approved", data: { vehicle } });
   } catch (error) {

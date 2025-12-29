@@ -162,3 +162,15 @@ export const scrapVehicle = async (id: string): Promise<Vehicle | null> => {
   const result = await pool.query(query, [id]);
   return result.rows[0] || null;
 };
+
+// Update vehicle with QR code and Digital Signature
+export const updateVehicleQrAndSignature = async (id: string, qrCode: string, signature: string): Promise<Vehicle | null> => {
+  const query = `
+    UPDATE vehicles 
+    SET qr_code_data = $1, digital_signature = $2, updated_at = NOW() 
+    WHERE id = $3 
+    RETURNING *
+  `;
+  const result = await pool.query(query, [qrCode, signature, id]);
+  return result.rows[0] || null;
+};

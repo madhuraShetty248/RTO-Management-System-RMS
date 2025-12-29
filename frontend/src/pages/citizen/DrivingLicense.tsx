@@ -291,6 +291,42 @@ const DrivingLicensePage: React.FC = () => {
                             </CardContent>
                           </Card>
 
+                          {/* QR Code and Digital Signature */}
+                          {(license.qr_code_data || license.digital_signature) && (
+                            <Card className="glass-card">
+                              <CardContent className="pt-4 sm:pt-6 space-y-3 sm:space-y-4">
+                                <h3 className="font-semibold text-sm sm:text-base flex items-center gap-2">
+                                  <QrCode className="h-4 w-4" />
+                                  Verification
+                                </h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  {license.qr_code_data && (
+                                    <div className="space-y-2">
+                                      <p className="text-muted-foreground text-xs">QR Code</p>
+                                      <div className="bg-white p-4 rounded-lg inline-block">
+                                        <img 
+                                          src={license.qr_code_data} 
+                                          alt="License QR Code" 
+                                          className="w-40 h-40"
+                                        />
+                                      </div>
+                                      <p className="text-xs text-muted-foreground">Scan to verify license</p>
+                                    </div>
+                                  )}
+                                  {license.digital_signature && (
+                                    <div className="space-y-2">
+                                      <p className="text-muted-foreground text-xs">Digital Signature</p>
+                                      <div className="bg-muted/50 p-3 rounded-lg">
+                                        <p className="font-mono text-xs break-all">{license.digital_signature}</p>
+                                      </div>
+                                      <p className="text-xs text-muted-foreground">Cryptographic signature</p>
+                                    </div>
+                                  )}
+                                </div>
+                              </CardContent>
+                            </Card>
+                          )}
+
                           <div className="text-center text-xs text-muted-foreground px-2">
                             <p>This is a digitally verified driving license issued by RTO Portal</p>
                             <p className="mt-1">Valid across India • Keep this safe</p>
